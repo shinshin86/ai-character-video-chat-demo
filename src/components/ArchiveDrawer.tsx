@@ -1,4 +1,5 @@
 import { Archive, Download, Play, X } from "lucide-react";
+import { canApplyIdle } from "../lib/idleMotion";
 import type { ArchiveEntry } from "../types";
 
 interface ArchiveDrawerProps {
@@ -8,6 +9,12 @@ interface ArchiveDrawerProps {
   error: string;
   onClose: () => void;
   onPlay: (entry: ArchiveEntry) => void;
+  onApplyIdle: (entry: ArchiveEntry) => Promise<void>;
+  imageUrl: string;
+  idleVideoUrl: string;
+  busy: boolean;
+  applyError: string;
+  applyStatus: string;
 }
 
 const formatter = new Intl.DateTimeFormat("ja-JP", {
@@ -22,6 +29,7 @@ export function ArchiveDrawer({
   error,
   onClose,
   onPlay,
+  onApplyIdle, imageUrl, idleVideoUrl, busy, applyError, applyStatus,
 }: ArchiveDrawerProps) {
   if (!open) return null;
 
@@ -46,6 +54,8 @@ export function ArchiveDrawer({
           </button>
         </header>
 
+        {applyError && <div className="inline-error" role="alert">{applyError}</div>}
+        {applyStatus && <p className="field-hint" role="status">{applyStatus}</p>}
         <div className="archive-list">
           {loading ? (
             <div className="archive-empty">
@@ -69,17 +79,20 @@ export function ArchiveDrawer({
                   <video
                     src={entry.localVideoUrl}
                     muted
+                    controls={entry.kind === "idle"}
+                    loop={entry.kind === "idle"}
+                    aria-label={entry.kind === "idle" ? "アイドル動画のプレビュー" : "会話動画"}
                     playsInline
                     preload="metadata"
                   />
-                  <button
+                  {entry.kind !== "idle" && <button
                     className="archive-thumbnail-play"
                     type="button"
                     onClick={() => onPlay(entry)}
                     aria-label="メイン画面で再生"
                   >
                     <Play size={18} fill="currentColor" aria-hidden="true" />
-                  </button>
+                  </button>}
                   <a
                     className="archive-download-button"
                     href={entry.localVideoUrl}
@@ -89,14 +102,26 @@ export function ArchiveDrawer({
                   >
                     <Download size={15} aria-hidden="true" />
                   </a>
-                  <div className="archive-thumbnail-meta">
+                  {entry.kind !== "idle" && <div className="archive-thumbnail-meta">
                     <span>{formatter.format(new Date(entry.createdAt))}</span>
                     <span>{entry.resolution}</span>
-                  </div>
+                  </div>}
                 </div>
                 <div className="archive-card-body">
+                  {entry.kind === "idle" && (
+                    <div className="idle-archive-actions">
+                      <strong>アイドルモーション</strong>
+                      <span>{formatter.format(new Date(entry.createdAt))} · {entry.resolution}</span>
+                      <button
+                        type="button" className="secondary-button"
+                        disabled={busy || !canApplyIdle(entry, imageUrl) || entry.localVideoUrl === idleVideoUrl}
+                        onClick={() => void onApplyIdle(entry)}
+                      >{canApplyIdle(entry, imageUrl) && entry.localVideoUrl === idleVideoUrl ? "設定中" : "待ち受けに設定"}</button>
+                      {!canApplyIdle(entry, imageUrl) && <p className="field-hint">設定するには、生成元の画像をSettingsで選択してください。</p>}
+                    </div>
+                  )}
                   <div className="archive-line user-line">
-                    <span>You</span>
+                    <span>{entry.kind === "idle" ? "Idle" : "You"}</span>
                     <p>{entry.userMessage}</p>
                   </div>
                   <div className="archive-line character-line">
@@ -107,8 +132,8 @@ export function ArchiveDrawer({
                     <summary>生成情報</summary>
                     <dl>
                       <div>
-                        <dt>LLM</dt>
-                        <dd>{entry.llmModel}</dd>
+                        <dt>{entry.kind === "idle" ? "種類" : "LLM"}</dt>
+                        <dd>{entry.kind === "idle" ? "アイドルモーション" : entry.llmModel}</dd>
                       </div>
                       <div>
                         <dt>fal request</dt>

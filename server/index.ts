@@ -221,6 +221,7 @@ app.post(
 );
 
 interface VideoRequestBody {
+  kind?: "reply" | "idle";
   imageUrl?: string;
   prompt?: string;
   resolution?: "480P" | "768P";
@@ -241,9 +242,8 @@ app.post("/api/fal/generate-video", async (request, response) => {
   if (
     !body.imageUrl ||
     !body.prompt ||
-    !body.userMessage ||
-    !body.assistantReply ||
-    !body.llmModel ||
+    (body.kind !== undefined && body.kind !== "idle" && body.kind !== "reply") ||
+    (body.kind !== "idle" && (!body.userMessage || !body.assistantReply || !body.llmModel)) ||
     (body.resolution !== "480P" && body.resolution !== "768P")
   ) {
     response.status(400).json({ error: "動画生成リクエストが不正です。" });
@@ -267,6 +267,7 @@ app.post("/api/fal/generate-video", async (request, response) => {
     const result = await fal.subscribe("minimax/h3-max/image-to-video", {
       input: {
         image_url: body.imageUrl,
+        end_image_url: body.imageUrl,
         prompt: body.prompt,
         duration: 5,
         resolution: body.resolution,
@@ -298,10 +299,12 @@ app.post("/api/fal/generate-video", async (request, response) => {
 
     const archive = await archiveVideo(dataRoot, {
       characterName: body.characterName?.trim() ?? "",
-      userMessage: body.userMessage,
-      assistantReply: body.assistantReply,
+      kind: body.kind ?? "reply",
+      sourceImageUrl: body.imageUrl,
+      userMessage: body.kind === "idle" ? "アイドルモーションを作成" : body.userMessage!,
+      assistantReply: body.kind === "idle" ? "待ち受け動画（無音）" : body.assistantReply!,
       videoPrompt: body.prompt,
-      llmModel: body.llmModel,
+      llmModel: body.kind === "idle" ? "—" : body.llmModel!,
       resolution: body.resolution,
       remoteVideoUrl,
       falRequestId: result.requestId,

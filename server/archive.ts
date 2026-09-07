@@ -6,6 +6,8 @@ import type { VideoResolution } from "../src/types/index";
 const MAX_VIDEO_BYTES = 100 * 1024 * 1024;
 
 export interface ArchiveInput {
+  kind?: "reply" | "idle";
+  sourceImageUrl?: string;
   characterName: string;
   userMessage: string;
   assistantReply: string;

@@ -15,6 +15,7 @@ import { fetchArchive } from "./lib/archive";
 import { generateCharacterReply } from "./lib/chat";
 import { getErrorMessage } from "./lib/errors";
 import { uploadCharacterImage } from "./lib/fal";
+import { canApplyIdle } from "./lib/idleMotion";
 import { fetchLlmModels } from "./lib/models";
 import { fetchReferenceImages } from "./lib/references";
 import {
@@ -22,7 +23,7 @@ import {
   resetSettings,
   saveSettings,
 } from "./lib/storage";
-import { generateAndArchiveVideo } from "./lib/video";
+import { generateAndArchiveVideo, preloadVideo } from "./lib/video";
 import type {
   AppSettings,
   ArchiveEntry,
@@ -65,10 +66,16 @@ export default function App() {
   const [referenceImages, setReferenceImages] = useState<ReferenceImage[]>([]);
   const [referenceImagesLoading, setReferenceImagesLoading] = useState(true);
   const [referenceImagesError, setReferenceImagesError] = useState("");
+  const [idleCandidates, setIdleCandidates] = useState<Record<string, ArchiveEntry>>({});
+  const [idleApplying, setIdleApplying] = useState(false);
+  const [idleGenerating, setIdleGenerating] = useState(false);
+  const [idleError, setIdleError] = useState("");
+  const generationLock = useRef(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   const ready = Boolean(settings.falApiKey && settings.characterImageUrl);
   const isBusy = phase !== "idle";
+  const idleVideoUrl = settings.idleVideoUrls[settings.characterImageUrl] ?? "";
   const characterDisplayName = settings.characterName.trim() || "AI Character";
   const selectedReferenceImage = referenceImages.find(
     (image) => image.id === settings.characterReferenceId,
@@ -157,6 +164,7 @@ export default function App() {
     nextSettings: AppSettings,
     image: File | null,
   ) => {
+    if (generationLock.current) return;
     setSettingsError("");
     setSavingSettings(true);
 
@@ -187,6 +195,11 @@ export default function App() {
       };
       saveSettings(saved);
       setSettings(saved);
+      if (saved.characterImageUrl !== settings.characterImageUrl) {
+        setCurrentVideoUrl("");
+        setMessages([]);
+        setIdleError("");
+      }
       setSettingsOpen(false);
       setError("");
     } catch (settingsSaveError) {
@@ -199,14 +212,17 @@ export default function App() {
   };
 
   const handleResetSettings = () => {
+    if (generationLock.current) return;
     const defaults = resetSettings();
     setSettings(defaults);
+    setIdleCandidates({});
+    setIdleError("");
     setCurrentVideoUrl("");
     setSettingsError("");
   };
 
   const handleSend = async (text: string) => {
-    if (isBusy) return;
+    if (generationLock.current || savingSettings) return;
     if (!ready) {
       setSettingsError(
         !settings.falApiKey
@@ -217,6 +233,7 @@ export default function App() {
       return;
     }
 
+    generationLock.current = true;
     setError("");
     const userMessage = createMessage("user", text);
     const conversation = [...messages, userMessage];
@@ -268,6 +285,75 @@ export default function App() {
     } catch (sendError) {
       setError(getErrorMessage(sendError));
     } finally {
+      generationLock.current = false;
+      setPhase("idle");
+      setStatusText("");
+    }
+  };
+
+  const handleGenerateIdle = async (prompt: string) => {
+    if (generationLock.current || savingSettings || !ready) return;
+    generationLock.current = true;
+    setIdleGenerating(true);
+    setIdleError("");
+    setPhase("generating");
+    setStatusText("アイドルモーションを生成しています...");
+    try {
+      const saved = { ...settings, idlePrompts: { ...settings.idlePrompts, [settings.characterImageUrl]: prompt.trim() } };
+      saveSettings(saved);
+      setSettings(saved);
+      const archive = await generateAndArchiveVideo({
+        settings,
+        kind: "idle",
+        idlePrompt: prompt,
+        onStatus: (status) => {
+          setStatusText(status === "IN_QUEUE"
+            ? "アイドルモーションの生成順を待っています..."
+            : status === "ARCHIVING"
+              ? "アイドルモーションを保存しています..."
+              : "アイドルモーションを生成しています...");
+        },
+      });
+      setArchives((current) => [archive, ...current.filter((entry) => entry.id !== archive.id)]);
+      setStatusText("アイドルモーションの再生準備をしています...");
+      await preloadVideo(archive.localVideoUrl);
+      setIdleCandidates((current) => ({ ...current, [settings.characterImageUrl]: archive }));
+    } catch (generationError) {
+      setIdleError(getErrorMessage(generationError, "アイドルモーションを作成できませんでした。"));
+    } finally {
+      generationLock.current = false;
+      setIdleGenerating(false);
+      setPhase("idle");
+      setStatusText("");
+    }
+  };
+
+  const handleApplyIdle = async (entry: ArchiveEntry, prompt?: string) => {
+    if (generationLock.current || savingSettings) return;
+    if (!canApplyIdle(entry, settings.characterImageUrl)) {
+      setIdleError("現在の登録画像から生成したアイドル動画を選んでください。");
+      return;
+    }
+    generationLock.current = true;
+    setIdleApplying(true);
+    setIdleError("");
+    setPhase("archiving");
+    setStatusText("待ち受け動画を設定しています...");
+    try {
+      await preloadVideo(entry.localVideoUrl);
+      const saved = {
+        ...settings,
+        idleVideoUrls: { ...settings.idleVideoUrls, [settings.characterImageUrl]: entry.localVideoUrl },
+        idlePrompts: prompt === undefined ? settings.idlePrompts : { ...settings.idlePrompts, [settings.characterImageUrl]: prompt },
+      };
+      saveSettings(saved);
+      setCurrentVideoUrl("");
+      setSettings(saved);
+    } catch (applyError) {
+      setIdleError(getErrorMessage(applyError, "待ち受け動画を設定できませんでした。"));
+    } finally {
+      generationLock.current = false;
+      setIdleApplying(false);
       setPhase("idle");
       setStatusText("");
     }
@@ -319,11 +405,12 @@ export default function App() {
       <main className="workspace">
         <div className="stage-column">
           <CharacterStage
+            key={settings.characterImageUrl}
+            idleVideoUrl={idleVideoUrl}
             characterName={characterDisplayName}
             imageUrl={characterDisplayImageUrl}
             videoUrl={currentVideoUrl}
             playbackKey={videoPlaybackKey}
-            phase={phase}
             onOpenSettings={() => setSettingsOpen(true)}
           />
           <div className="stage-caption">
@@ -377,10 +464,10 @@ export default function App() {
             </div>
           )}
 
-          {error && (
+          {(error || idleError) && (
             <div className="error-banner" role="alert">
-              <span>{error}</span>
-              <button type="button" onClick={() => setError("")}>
+              <span>{error || idleError}</span>
+              <button type="button" onClick={() => { setError(""); setIdleError(""); }}>
                 <X size={16} aria-hidden="true" />
                 <span className="sr-only">閉じる</span>
               </button>
@@ -409,6 +496,13 @@ export default function App() {
         open={settingsOpen}
         settings={settings}
         saving={savingSettings}
+        busy={isBusy}
+        idleGenerating={idleGenerating}
+        idleStatus={idleGenerating || idleApplying ? statusLabel : ""}
+        idleCandidate={idleCandidates[settings.characterImageUrl]}
+        onApplyIdle={handleApplyIdle}
+        idleError={idleError}
+        onGenerateIdle={handleGenerateIdle}
         error={settingsError}
         llmModels={llmModels}
         llmModelsLoading={llmModelsLoading}
@@ -432,6 +526,12 @@ export default function App() {
         error={archiveError}
         onClose={() => setArchiveOpen(false)}
         onPlay={playArchive}
+        onApplyIdle={handleApplyIdle}
+        imageUrl={settings.characterImageUrl}
+        idleVideoUrl={idleVideoUrl}
+        busy={isBusy || savingSettings}
+        applyError={idleError}
+        applyStatus={idleApplying ? statusLabel : ""}
       />
     </div>
   );

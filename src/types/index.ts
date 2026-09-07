@@ -7,6 +7,8 @@ export interface CharacterReply {
 }
 
 export interface AppSettings {
+  idleVideoUrls: Record<string, string>;
+  idlePrompts: Record<string, string>;
   falApiKey: string;
   characterImageUrl: string;
   characterReferenceId: string;
@@ -44,6 +46,8 @@ export interface ChatMessage {
 }
 
 export interface ArchiveEntry {
+  kind?: "reply" | "idle";
+  sourceImageUrl?: string;
   id: string;
   createdAt: string;
   characterName: string;

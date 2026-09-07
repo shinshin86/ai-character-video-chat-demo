@@ -1397,3 +1397,75 @@ img.stage-media {
     animation-iteration-count: 1 !important;
   }
 }
+
+.idle-settings {
+  display: grid;
+  gap: 10px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+
+.stage-layer {
+  position: absolute;
+  inset: 0;
+}
+
+.stage-layer.is-hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.stage-reply {
+  z-index: 2;
+}
+
+.settings-fields {
+  display: contents;
+}
+
+.idle-preview-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.idle-preview-card, .idle-archive-actions {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  min-width: 0;
+}
+
+.idle-preview-card > strong, .idle-archive-actions > span {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.idle-preview {
+  display: grid;
+  place-items: center;
+  height: 170px;
+  overflow: hidden;
+  background: #050607;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+
+.idle-preview video {
+  width: 100%;
+  height: 170px;
+  object-fit: contain;
+}
+
+.idle-preview p {
+  margin: 0;
+  padding: 12px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.7;
+}
+
+@media (max-width: 520px) {
+  .idle-preview-grid { grid-template-columns: 1fr; }
+}

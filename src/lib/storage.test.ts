@@ -6,6 +6,7 @@ afterEach(() => vi.unstubAllGlobals());
 describe("idle motion settings", () => {
   it("loads existing settings without an idle motion", () => {
     vi.stubGlobal("localStorage", { getItem: () => JSON.stringify({ characterImageUrl: "https://example.com/avatar.png" }) });
+    expect(loadSettings().videoModel).toBe("h3-max");
     expect(loadSettings().idleVideoUrls).toEqual({});
     expect(loadSettings().idlePrompts).toEqual({});
   });
@@ -21,7 +22,8 @@ describe("idle motion settings", () => {
       "https://example.com/second.png": "/local-media/videos/second.mp4",
     };
     const idlePrompts = { "https://example.com/first.png": "ゆっくり呼吸する" };
-    saveSettings({ ...DEFAULT_SETTINGS, idleVideoUrls, idlePrompts });
+    saveSettings({ ...DEFAULT_SETTINGS, videoModel: "h3-max", idleVideoUrls, idlePrompts });
+    expect(loadSettings().videoModel).toBe("h3-max");
     expect(loadSettings().idleVideoUrls).toEqual(idleVideoUrls);
     expect(loadSettings().idlePrompts).toEqual(idlePrompts);
   });

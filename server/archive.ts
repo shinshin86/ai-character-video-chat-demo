@@ -1,3 +1,4 @@
+import type { VideoModel } from "../src/lib/videoModels";
 import { randomUUID } from "node:crypto";
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -6,6 +7,7 @@ import type { VideoResolution } from "../src/types/index";
 const MAX_VIDEO_BYTES = 100 * 1024 * 1024;
 
 export interface ArchiveInput {
+  videoModel?: VideoModel;
   kind?: "reply" | "idle";
   sourceImageUrl?: string;
   characterName: string;

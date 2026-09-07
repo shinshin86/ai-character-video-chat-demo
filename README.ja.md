@@ -136,6 +136,8 @@ minimax/h3-max/image-to-video
 
 動画は5秒固定です。480Pまたは768PをSettingsで選択できます。
 
+SettingsのVideo ModelでMiniMax H3 MaxとMiniMax H3 Max Turboを切り替えられます。初期値はH3 Maxです。保存後の会話動画・アイドル動画の両方に適用され、生成に使ったモデルはArchiveの生成情報に記録されます。既存の動画や待ち受け設定は変わりません。Turboでは `minimax/h3-max-turbo/image-to-video` を使用します。実際の待ち時間はモデルの処理時間に加え、キューやダウンロードにも左右されます。
+
 ### Image upload
 
 キャラクター画像はローカルのリファレンスライブラリへ保存し、`@fal-ai/client` の `fal.storage.upload()` 相当の処理でfal CDNへ一度だけアップロードします。同じ画像を再び選択した場合は、ローカル画像と保存済みfal URLを再利用します。

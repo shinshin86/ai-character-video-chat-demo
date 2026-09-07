@@ -86,6 +86,7 @@ export async function generateAndArchiveVideo({
       imageUrl: settings.characterImageUrl,
       prompt,
       resolution: settings.resolution,
+      videoModel: settings.videoModel,
       characterName: settings.characterName,
       userMessage,
       assistantReply,

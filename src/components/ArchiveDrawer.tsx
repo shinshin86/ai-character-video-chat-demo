@@ -1,3 +1,4 @@
+import { normalizeVideoModel, VIDEO_MODELS } from "../lib/videoModels";
 import { Archive, Download, Play, X } from "lucide-react";
 import { canApplyIdle } from "../lib/idleMotion";
 import type { ArchiveEntry } from "../types";
@@ -131,6 +132,10 @@ export function ArchiveDrawer({
                   <details>
                     <summary>生成情報</summary>
                     <dl>
+                      <div>
+                        <dt>Video Model</dt>
+                        <dd>{VIDEO_MODELS[normalizeVideoModel(entry.videoModel, "h3-max")].label}</dd>
+                      </div>
                       <div>
                         <dt>{entry.kind === "idle" ? "種類" : "LLM"}</dt>
                         <dd>{entry.kind === "idle" ? "アイドルモーション" : entry.llmModel}</dd>

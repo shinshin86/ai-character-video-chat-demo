@@ -61,11 +61,12 @@ describe("idle generation", () => {
     vi.stubGlobal("fetch", fetchMock);
     const { DEFAULT_SETTINGS } = await import("./storage");
     const onStatus = vi.fn();
-    expect(await generateAndArchiveVideo({ settings: DEFAULT_SETTINGS, kind: "idle", idlePrompt: "Gentle breathing only.", onStatus })).toEqual(archive);
+    expect(await generateAndArchiveVideo({ settings: { ...DEFAULT_SETTINGS, videoModel: "h3-max-turbo" }, kind: "idle", idlePrompt: "Gentle breathing only.", onStatus })).toEqual(archive);
     expect(fetchMock).toHaveBeenCalledTimes(1);
     const call = vi.mocked(fetch).mock.calls[0];
     const body = JSON.parse(call[1]!.body as string);
     expect(body.kind).toBe("idle");
+    expect(body.videoModel).toBe("h3-max-turbo");
     expect(body.prompt).toBe("Gentle breathing only.");
     expect(body.assistantReply).toBe("");
     expect(onStatus).toHaveBeenCalledWith("ARCHIVING", undefined);

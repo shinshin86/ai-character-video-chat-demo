@@ -1,3 +1,4 @@
+import { normalizeVideoModel, VIDEO_MODELS } from "../lib/videoModels";
 import {
   Check,
   Eye,
@@ -299,6 +300,20 @@ export function SettingsDialog({
                 </div>
               )}
             </section>
+          </div>
+
+          <div className="field-group">
+            <label htmlFor="video-model">Video Model</label>
+            <select
+              id="video-model"
+              value={draft.videoModel}
+              onChange={(event) => setDraft({ ...draft, videoModel: normalizeVideoModel(event.target.value) })}
+            >
+              {Object.entries(VIDEO_MODELS).map(([id, model]) => (
+                <option key={id} value={id}>{model.label}</option>
+              ))}
+            </select>
+            <p className="field-hint">保存後、会話動画とアイドル動画の両方に適用されます。生成済みの動画は変更されません。</p>
           </div>
 
           <IdleMotionSettings

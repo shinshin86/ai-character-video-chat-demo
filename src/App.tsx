@@ -1,3 +1,4 @@
+import { VIDEO_MODELS } from "./lib/videoModels";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Archive as ArchiveIcon,
@@ -418,7 +419,7 @@ export default function App() {
               <span className="stage-caption-label">NOW TALKING WITH</span>
               <strong>{characterDisplayName}</strong>
             </div>
-            <span className="model-chip">H3 Max · {settings.resolution}</span>
+            <span className="model-chip">{VIDEO_MODELS[settings.videoModel].label} · {settings.resolution}</span>
           </div>
         </div>
 

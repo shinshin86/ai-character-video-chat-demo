@@ -1,3 +1,5 @@
+import type { VideoModel } from "../lib/videoModels";
+
 export type VideoResolution = "480P" | "768P";
 
 export interface CharacterReply {
@@ -7,6 +9,7 @@ export interface CharacterReply {
 }
 
 export interface AppSettings {
+  videoModel: VideoModel;
   idleVideoUrls: Record<string, string>;
   idlePrompts: Record<string, string>;
   falApiKey: string;
@@ -46,6 +49,7 @@ export interface ChatMessage {
 }
 
 export interface ArchiveEntry {
+  videoModel?: VideoModel;
   kind?: "reply" | "idle";
   sourceImageUrl?: string;
   id: string;

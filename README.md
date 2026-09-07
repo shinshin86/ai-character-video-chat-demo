@@ -136,6 +136,8 @@ minimax/h3-max/image-to-video
 
 Videos are fixed at five seconds. You can select 480P or 768P in Settings.
 
+Use Video Model in Settings to choose MiniMax H3 Max or MiniMax H3 Max Turbo. H3 Max is the default. After saving, the choice applies to both reply and idle video generation, and the model used is recorded in the Archive metadata. Existing videos and idle selections are unchanged. Turbo uses `minimax/h3-max-turbo/image-to-video`. End-to-end latency also depends on queueing and download time.
+
 ### Image upload
 
 The character image is saved to the local reference library and uploaded once to the fal CDN using a flow equivalent to `fal.storage.upload()` from `@fal-ai/client`. The local copy and saved fal URL are reused when you select the same image again.

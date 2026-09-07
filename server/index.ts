@@ -1,3 +1,4 @@
+import { DEFAULT_VIDEO_MODEL, isVideoModel, VIDEO_MODELS } from "../src/lib/videoModels";
 import { createFalClient } from "@fal-ai/client";
 import express, { type NextFunction, type Request, type Response } from "express";
 import multer from "multer";
@@ -221,6 +222,7 @@ app.post(
 );
 
 interface VideoRequestBody {
+  videoModel?: unknown;
   kind?: "reply" | "idle";
   imageUrl?: string;
   prompt?: string;
@@ -240,6 +242,7 @@ app.post("/api/fal/generate-video", async (request, response) => {
 
   const body = request.body as VideoRequestBody;
   if (
+    (body.videoModel !== undefined && !isVideoModel(body.videoModel)) ||
     !body.imageUrl ||
     !body.prompt ||
     (body.kind !== undefined && body.kind !== "idle" && body.kind !== "reply") ||
@@ -249,6 +252,8 @@ app.post("/api/fal/generate-video", async (request, response) => {
     response.status(400).json({ error: "動画生成リクエストが不正です。" });
     return;
   }
+
+  const videoModel = isVideoModel(body.videoModel) ? body.videoModel : DEFAULT_VIDEO_MODEL;
 
   response.status(200);
   response.setHeader("Content-Type", "application/x-ndjson; charset=utf-8");
@@ -264,7 +269,7 @@ app.post("/api/fal/generate-video", async (request, response) => {
 
   try {
     const fal = createFalClient({ credentials: apiKey });
-    const result = await fal.subscribe("minimax/h3-max/image-to-video", {
+    const result = await fal.subscribe(VIDEO_MODELS[videoModel].endpoint, {
       input: {
         image_url: body.imageUrl,
         end_image_url: body.imageUrl,
@@ -301,6 +306,7 @@ app.post("/api/fal/generate-video", async (request, response) => {
       characterName: body.characterName?.trim() ?? "",
       kind: body.kind ?? "reply",
       sourceImageUrl: body.imageUrl,
+      videoModel,
       userMessage: body.kind === "idle" ? "アイドルモーションを作成" : body.userMessage!,
       assistantReply: body.kind === "idle" ? "待ち受け動画（無音）" : body.assistantReply!,
       videoPrompt: body.prompt,

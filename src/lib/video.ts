@@ -1,19 +1,25 @@
-import type { AppSettings, ArchiveEntry } from "../types";
+import type { AppSettings, ArchiveEntry, CharacterReply } from "../types";
 import { readJsonError } from "./errors";
 
-export function buildVideoPrompt(reply: string): string {
+export function buildVideoPrompt(
+  reply: string,
+  performance: Pick<CharacterReply, "action" | "expression"> = { action: "", expression: "" },
+): string {
   const quotedReply = JSON.stringify(reply.trim());
+  const action = performance.action.trim();
+  const expression = performance.expression.trim();
   return `Preserve the character's identity, appearance, outfit, hairstyle, facial features, and original visual style from the reference image.
 
 The character looks toward the camera and says in Japanese:
 ${quotedReply}
 
-Natural speaking motion.
+Visual performance directions (do not speak these directions):
+${action ? `Action: ${action}\nPerform this gesture visibly while speaking; allow the necessary arm, hand, and upper body movement.` : "Natural speaking motion with very subtle head and upper body movement."}
+${expression ? `Facial expression: ${expression}` : "Subtle facial expressions matching the dialogue."}
+
 Accurate lip synced Japanese dialogue.
 Clear native audio with no music.
 Natural blinking.
-Subtle facial expressions matching the dialogue.
-Very subtle head and upper body movement.
 Keep the camera mostly static.
 Preserve the original background and composition as much as possible.
 If the reference is anime or illustration, preserve that exact visual style and do not make it photorealistic.
@@ -43,6 +49,7 @@ interface GenerateVideoOptions {
   settings: AppSettings;
   userMessage: string;
   assistantReply: string;
+  performance: Pick<CharacterReply, "action" | "expression">;
   onStatus: (status: string, message?: string) => void;
 }
 
@@ -50,9 +57,10 @@ export async function generateAndArchiveVideo({
   settings,
   userMessage,
   assistantReply,
+  performance,
   onStatus,
 }: GenerateVideoOptions): Promise<ArchiveEntry> {
-  const prompt = buildVideoPrompt(assistantReply);
+  const prompt = buildVideoPrompt(assistantReply, performance);
   const response = await fetch("/api/fal/generate-video", {
     method: "POST",
     headers: {

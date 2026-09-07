@@ -1,5 +1,11 @@
 export type VideoResolution = "480P" | "768P";
 
+export interface CharacterReply {
+  dialogue: string;
+  action: string;
+  expression: string;
+}
+
 export interface AppSettings {
   falApiKey: string;
   characterImageUrl: string;

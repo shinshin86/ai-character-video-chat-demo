@@ -227,7 +227,7 @@ export default function App() {
     let assistantMessage: ChatMessageType | undefined;
     try {
       const reply = await generateCharacterReply(settings, conversation);
-      assistantMessage = createMessage("assistant", reply);
+      assistantMessage = createMessage("assistant", reply.dialogue);
       setMessages((current) => [...current, assistantMessage!]);
       setPhase("generating");
       setStatusText("動画を生成しています...");
@@ -235,7 +235,8 @@ export default function App() {
       const archive = await generateAndArchiveVideo({
         settings,
         userMessage: text,
-        assistantReply: reply,
+        assistantReply: reply.dialogue,
+        performance: reply,
         onStatus: (status) => {
           if (status === "ARCHIVING") {
             setPhase("archiving");
@@ -323,7 +324,6 @@ export default function App() {
             videoUrl={currentVideoUrl}
             playbackKey={videoPlaybackKey}
             phase={phase}
-            statusText={statusLabel}
             onOpenSettings={() => setSettingsOpen(true)}
           />
           <div className="stage-caption">
@@ -367,16 +367,15 @@ export default function App() {
               ))
             )}
 
-            {phase === "thinking" && (
-              <div className="typing-indicator" role="status">
-                <span />
-                <span />
-                <span />
-                {characterDisplayName}が入力中
-              </div>
-            )}
             <div ref={chatEndRef} />
           </div>
+
+          {isBusy && (
+            <div className="chat-generation-status" role="status" aria-live="polite">
+              <span className="spinner" aria-hidden="true" />
+              <span>{statusLabel}</span>
+            </div>
+          )}
 
           {error && (
             <div className="error-banner" role="alert">

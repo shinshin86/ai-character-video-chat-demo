@@ -48,6 +48,23 @@ You can launch the app, open Settings, and view an empty Archive without an API 
 
 Character Name and Character Persona are optional. The initial state does not assign a specific name, gender, or personality.
 
+## Idle motion
+
+Save the image and API key with Save Changes, reopen Settings, and click “アイドルモーションを作成” (Create idle motion). The same H3 Max API generates a five-second clip. After downloading and validating it, Settings displays the candidate beside the current idle video. Click “この動画を設定” (Apply this video) to use it. Generation alone never replaces the current idle video. Idle generation does not call the LLM.
+
+- The prompt field starts with the default breathing and blinking directions. Edit it in English or Japanese, or restore it with “デフォルトに戻す”. Prompts are saved per image with Save Changes or when generating.
+- Adjust the prompt and regenerate until satisfied. Unselected candidates remain in the Archive and can be downloaded as MP4 files.
+- Idle archive entries have an inline preview. Use “待ち受けに設定” to reapply a video generated from the currently selected reference image.
+
+- The idle video loops muted while chat replies are being generated.
+- Once a reply video is ready to play, playback switches at the idle loop boundary and returns to idle after the reply ends. Waiting for the boundary can add almost one full loop of latency.
+- Each creation or regeneration incurs video generation charges. Replaying a saved loop makes no API calls.
+- Idle settings are saved per image in the browser and restored after a reload or when selecting that image again from Saved Images.
+- Failed generation, saving, or playback validation preserves the previous idle setting. A missing or unloadable idle video falls back to the still image.
+- Chat submission and settings changes are disabled during generation. Closing Settings lets generation continue, with progress shown in the chat panel.
+
+Idle videos and new reply videos use the registered image as both the first and last frame. A relaxed pose with the mouth closed works best. Seam quality depends on the generated footage; previously generated replies are not modified.
+
 ## First chat recipe
 
 For your first run, start with the following setup:
@@ -119,6 +136,8 @@ minimax/h3-max/image-to-video
 
 Videos are fixed at five seconds. You can select 480P or 768P in Settings.
 
+Use Video Model in Settings to choose MiniMax H3 Max or MiniMax H3 Max Turbo. H3 Max is the default. After saving, the choice applies to both reply and idle video generation, and the model used is recorded in the Archive metadata. Existing videos and idle selections are unchanged. Turbo uses `minimax/h3-max-turbo/image-to-video`. End-to-end latency also depends on queueing and download time.
+
 ### Image upload
 
 The character image is saved to the local reference library and uploaded once to the fal CDN using a flow equivalent to `fal.storage.upload()` from `@fal-ai/client`. The local copy and saved fal URL are reused when you select the same image again.
@@ -164,7 +183,7 @@ If you do not want to retain conversations, stop the server and delete the conte
 - fal.ai charges apply to video generation and LLM usage. LLM pricing varies by model.
 - Choose 480P when prioritizing lower cost and faster generation.
 - Results vary depending on the source image, prompt, and model state.
-- The browser may block autoplay for videos with audio. If so, use the video controls to play the result manually.
+- The browser may block autoplay for videos with audio. If so, click “返答動画を音声付きで再生” to play the reply with audio.
 - Japanese speech and lip-sync quality depend on the source image and dialogue.
 - The Archive is stored on this computer and is not automatically synchronized to another computer or clone.
 

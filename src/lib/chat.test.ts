@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { DEFAULT_SETTINGS } from "./storage";
-import { buildSystemPrompt, extractAssistantText, normalizeReply } from "./chat";
+import { buildSystemPrompt, extractAssistantText, normalizeReply, parseCharacterReply } from "./chat";
 
 describe("chat prompt", () => {
   it("includes the character identity and short reply constraints", () => {
@@ -34,5 +34,28 @@ describe("chat prompt", () => {
     expect(extractAssistantText({ data: { output: "元気だよ！" } })).toBe(
       "元気だよ！",
     );
+  });
+});
+
+describe("parseCharacterReply", () => {
+  it("keeps gestures and expressions separate from spoken dialogue", () => {
+    expect(parseCharacterReply('```json\n' + JSON.stringify({
+      dialogue: "「こんにちは！」", action: " Wave one hand. ", expression: "Smile warmly.",
+    }) + '\n```')).toEqual({
+      dialogue: "こんにちは！", action: "Wave one hand.", expression: "Smile warmly.",
+    });
+  });
+
+  it("allows an ordinary reply without requested gestures", () => {
+    expect(parseCharacterReply('{"dialogue":"元気だよ！","action":"","expression":""}').action).toBe("");
+  });
+
+  it.each([
+    "こんにちは！", "null", "[]", '{"dialogue":"こんにちは！"}',
+    '{"dialogue":"こんにちは！","action":{},"expression":""}',
+    '{"dialogue":" ","action":"","expression":""}',
+    JSON.stringify({ dialogue: "こんにちは！", action: "a".repeat(601), expression: "" }),
+  ])("rejects unusable replies before video generation: %s", (value) => {
+    expect(() => parseCharacterReply(value)).toThrow();
   });
 });

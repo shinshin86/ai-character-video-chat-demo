@@ -1,9 +1,14 @@
+import { DEFAULT_VIDEO_MODEL, normalizeVideoModel } from "./videoModels";
 import type { AppSettings } from "../types";
+import { normalizeIdlePrompts } from "./idleMotion";
 
 const SETTINGS_KEY = "ai-character-video-chat:settings:v2";
 const LEGACY_SETTINGS_KEY = "ai-character-video-chat:settings:v1";
 
 export const DEFAULT_SETTINGS: AppSettings = {
+  videoModel: DEFAULT_VIDEO_MODEL,
+  idleVideoUrls: {},
+  idlePrompts: {},
   falApiKey: "",
   characterImageUrl: "",
   characterReferenceId: "",
@@ -21,6 +26,9 @@ export function loadSettings(): AppSettings {
       return {
         ...DEFAULT_SETTINGS,
         ...parsed,
+        videoModel: normalizeVideoModel(parsed.videoModel),
+        idleVideoUrls: normalizeIdleVideoUrls(parsed.idleVideoUrls),
+        idlePrompts: normalizeIdlePrompts(parsed.idlePrompts),
         resolution: parsed.resolution === "768P" ? "768P" : "480P",
       };
     }
@@ -54,4 +62,11 @@ export function resetSettings(): AppSettings {
   localStorage.removeItem(SETTINGS_KEY);
   localStorage.removeItem(LEGACY_SETTINGS_KEY);
   return DEFAULT_SETTINGS;
+}
+
+export function normalizeIdleVideoUrls(value: unknown): Record<string, string> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  return Object.fromEntries(Object.entries(value).filter(([, url]) =>
+    typeof url === "string" && /^\/local-media\/videos\/[a-zA-Z0-9-]+\.mp4$/.test(url),
+  ));
 }

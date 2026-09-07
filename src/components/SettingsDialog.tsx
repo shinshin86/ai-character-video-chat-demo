@@ -1,3 +1,4 @@
+import { normalizeVideoModel, VIDEO_MODELS } from "../lib/videoModels";
 import {
   Check,
   Eye,
@@ -8,7 +9,8 @@ import {
   X,
 } from "lucide-react";
 import { useEffect, useMemo, useState, type FormEvent } from "react";
-import type { AppSettings, LlmModelOption, ReferenceImage } from "../types";
+import type { AppSettings, ArchiveEntry, LlmModelOption, ReferenceImage } from "../types";
+import { IdleMotionSettings } from "./IdleMotionSettings";
 import { validateCharacterImage } from "../lib/fal";
 import { formatPerMillionPrice } from "../lib/models";
 
@@ -16,6 +18,13 @@ interface SettingsDialogProps {
   open: boolean;
   settings: AppSettings;
   saving: boolean;
+  busy: boolean;
+  idleGenerating: boolean;
+  idleStatus: string;
+  idleError: string;
+  idleCandidate?: ArchiveEntry;
+  onApplyIdle: (entry: ArchiveEntry, prompt?: string) => Promise<void>;
+  onGenerateIdle: (prompt: string) => Promise<void>;
   error: string;
   llmModels: LlmModelOption[];
   llmModelsLoading: boolean;
@@ -34,6 +43,13 @@ export function SettingsDialog({
   open,
   settings,
   saving,
+  busy,
+  idleGenerating,
+  idleStatus,
+  idleError,
+  onGenerateIdle,
+  idleCandidate,
+  onApplyIdle,
   error,
   llmModels,
   llmModelsLoading,
@@ -87,6 +103,9 @@ export function SettingsDialog({
     if (selected) setPreviewUrl(selected.localImageUrl);
   }, [draft.characterReferenceId, image, open, referenceImages]);
 
+  const hasUnsavedChanges = Boolean(image) || JSON.stringify({ ...draft, idlePrompts: settings.idlePrompts }) !== JSON.stringify(settings);
+  const idleVideoUrl = settings.idleVideoUrls[settings.characterImageUrl];
+
   if (!open) return null;
 
   const chooseImage = (file: File | undefined) => {
@@ -139,6 +158,7 @@ export function SettingsDialog({
         </header>
 
         <form onSubmit={submit} className="settings-form">
+          <fieldset className="settings-fields" disabled={busy || saving}>
           <div className="field-group">
             <label htmlFor="fal-api-key">fal API Key</label>
             <div className="password-field">
@@ -183,7 +203,7 @@ export function SettingsDialog({
               <input
                 type="file"
                 accept="image/png,image/jpeg,image/webp,.jpg,.jpeg,.png,.webp"
-                disabled={saving}
+                disabled={saving || busy}
                 onChange={(event) => {
                   const file = event.target.files?.[0];
                   event.currentTarget.value = "";
@@ -209,7 +229,7 @@ export function SettingsDialog({
                   type="button"
                   className="model-refresh-button"
                   onClick={() => void onRefreshReferenceImages()}
-                  disabled={referenceImagesLoading || saving}
+                  disabled={referenceImagesLoading || saving || busy}
                 >
                   <RefreshCw
                     size={13}
@@ -251,7 +271,7 @@ export function SettingsDialog({
                         }`}
                         aria-pressed={selected}
                         aria-label={`${entry.originalName}を選択`}
-                        disabled={saving}
+                        disabled={saving || busy}
                         onClick={() => {
                           setImage(null);
                           setPreviewUrl(entry.localImageUrl);
@@ -281,6 +301,39 @@ export function SettingsDialog({
               )}
             </section>
           </div>
+
+          <div className="field-group">
+            <label htmlFor="video-model">Video Model</label>
+            <select
+              id="video-model"
+              value={draft.videoModel}
+              onChange={(event) => setDraft({ ...draft, videoModel: normalizeVideoModel(event.target.value) })}
+            >
+              {Object.entries(VIDEO_MODELS).map(([id, model]) => (
+                <option key={id} value={id}>{model.label}</option>
+              ))}
+            </select>
+            <p className="field-hint">保存後、会話動画とアイドル動画の両方に適用されます。生成済みの動画は変更されません。</p>
+          </div>
+
+          <IdleMotionSettings
+            key={settings.characterImageUrl}
+            currentUrl={idleVideoUrl ?? ""}
+            candidate={idleCandidate}
+            initialPrompt={settings.idlePrompts[settings.characterImageUrl]}
+            onPromptChange={(prompt) => setDraft((current) => ({
+              ...current,
+              idlePrompts: { ...current.idlePrompts, [settings.characterImageUrl]: prompt },
+            }))}
+            blocked={busy || saving}
+            hasUnsavedChanges={hasUnsavedChanges}
+            canGenerate={Boolean(settings.characterImageUrl && settings.falApiKey)}
+            generating={idleGenerating}
+            status={idleStatus}
+            error={idleError}
+            onGenerate={onGenerateIdle}
+            onApply={(entry) => onApplyIdle(entry, draft.idlePrompts[settings.characterImageUrl])}
+          />
 
           <div className="two-column-fields">
             <div className="field-group">
@@ -397,7 +450,7 @@ export function SettingsDialog({
               type="button"
               className="reset-button"
               onClick={onReset}
-              disabled={saving}
+              disabled={saving || busy}
             >
               <RotateCcw size={15} aria-hidden="true" />
               Reset Settings
@@ -407,15 +460,16 @@ export function SettingsDialog({
                 type="button"
                 className="ghost-button"
                 onClick={onClose}
-                disabled={saving}
+                disabled={saving || busy}
               >
                 Cancel
               </button>
-              <button className="primary-button" type="submit" disabled={saving}>
+              <button className="primary-button" type="submit" disabled={saving || busy}>
                 {saving ? "保存しています..." : "Save Changes"}
               </button>
             </div>
           </footer>
+          </fieldset>
         </form>
       </section>
     </div>

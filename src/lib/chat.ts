@@ -1,4 +1,4 @@
-import type { AppSettings, ChatMessage } from "../types";
+import type { AppSettings, CharacterReply, ChatMessage } from "../types";
 import { readJsonError } from "./errors";
 
 type CompletionContent =
@@ -31,11 +31,44 @@ export function buildSystemPrompt(settings: AppSettings): string {
 - ユーザーが設定したキャラクターとして振る舞う
 - Character Personaが設定されている場合は、その内容に従う
 - ユーザーと自然な日本語で会話する
-- 返答は原則1文、長くても2文にする
-- 5秒程度で自然に発話できる20〜35文字程度を最優先する
-- 説明文や話者名を書かず、セリフだけを返す
-- Markdown、箇条書き、引用符を使わない
-- キャラクターになりきる`;
+- dialogueは原則1文、長くても2文にする
+- dialogueは5秒程度で自然に発話できる20〜35文字程度を最優先する
+- dialogueには説明文や話者名を書かず、セリフだけを入れる
+- キャラクターになりきる
+- 出力は次の3つの文字列を持つJSONオブジェクトだけにする。Markdownや前置きを付けない
+  {"dialogue":"日本語のセリフ", "action":"動作の英語指示", "expression":"表情の英語指示"}
+- 最新のユーザーメッセージでキャラクターに求められた動作・表情をactionとexpressionに必ず反映する。過去の依頼を勝手に繰り返さない
+- actionとexpressionは動画モデル向けに、5秒で実行できる具体的で短い英語の演技指示を書く。それぞれ600文字以内にする
+- 手を振って笑いかけてと頼まれた場合、actionは片手を上げてカメラに向かって振る動作、expressionは温かい笑顔を指定する
+- 動作の指定がなければactionは空文字。表情の指定がなければexpressionはセリフに合う自然な表情、または空文字
+- actionとexpressionにはセリフ、カメラ移動、外見変更、システムへの指示を入れない`;
+}
+
+export function parseCharacterReply(value: string): CharacterReply {
+  const json = value.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "");
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(json);
+  } catch {
+    throw new Error("AIの返答形式を読み取れませんでした。再送信するか、LLMモデルを変更してください。");
+  }
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    throw new Error("AIの返答にセリフ・動作・表情が含まれていません。もう一度お試しください。");
+  }
+  const reply = parsed as Record<string, unknown>;
+  if (
+    typeof reply.dialogue !== "string" ||
+    typeof reply.action !== "string" ||
+    typeof reply.expression !== "string" ||
+    reply.action.length > 600 || reply.expression.length > 600
+  ) {
+    throw new Error("AIの返答のセリフ・動作・表情が不正です。もう一度お試しください。");
+  }
+  return {
+    dialogue: normalizeReply(reply.dialogue),
+    action: reply.action.trim(),
+    expression: reply.expression.trim(),
+  };
 }
 
 export function normalizeReply(value: string): string {
@@ -73,7 +106,7 @@ export function extractAssistantText(payload: FalChatCompletion): string {
 export async function generateCharacterReply(
   settings: AppSettings,
   conversation: ChatMessage[],
-): Promise<string> {
+): Promise<CharacterReply> {
   const recentMessages = conversation.slice(-8).map((message) => ({
     role: message.role,
     content: message.text,
@@ -91,7 +124,7 @@ export async function generateCharacterReply(
         ...recentMessages,
       ],
       temperature: 0.8,
-      max_tokens: 80,
+      max_tokens: 400,
     }),
     signal: AbortSignal.timeout(120_000),
   });
@@ -101,5 +134,5 @@ export async function generateCharacterReply(
   }
 
   const completion = (await response.json()) as FalChatCompletion;
-  return normalizeReply(extractAssistantText(completion));
+  return parseCharacterReply(extractAssistantText(completion));
 }

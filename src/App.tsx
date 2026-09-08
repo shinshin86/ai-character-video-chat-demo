@@ -171,7 +171,6 @@ export default function App() {
     image: File | null,
   ) => {
     if (generationLock.current) return;
-    youtube.stop();
     nextSettings = { ...nextSettings, youtube: normalizeYouTubeSettings(nextSettings.youtube) };
     setSettingsError("");
     setSavingSettings(true);
@@ -202,6 +201,7 @@ export default function App() {
         characterReferenceId,
       };
       saveSettings(saved);
+      if (JSON.stringify(saved) !== JSON.stringify(settings)) youtube.stop();
       setSettings(saved);
       if (saved.characterImageUrl !== settings.characterImageUrl) {
         playbackBusy.current = false;
@@ -312,7 +312,9 @@ export default function App() {
   const youtube = useYouTube(settings.youtube, isBusy || savingSettings || settingsOpen || archiveOpen, (comment) => handleSend(comment.text, comment));
 
   const handleGenerateIdle = async (prompt: string) => {
-    if (generationLock.current || savingSettings || !ready) return;
+    if (generationLock.current || savingSettings) return;
+    if (!settings.falApiKey.trim()) { setIdleError("AI・動画タブでfal API Keyを設定・保存してください。"); return; }
+    if (!settings.characterImageUrl) { setIdleError("生成するキャラクター画像を登録・保存してください。"); return; }
     generationLock.current = true;
     setIdleGenerating(true);
     setIdleError("");
@@ -367,6 +369,7 @@ export default function App() {
         idlePrompts: prompt === undefined ? settings.idlePrompts : { ...settings.idlePrompts, [settings.characterImageUrl]: prompt },
       };
       saveSettings(saved);
+      playbackBusy.current = false;
       setCurrentVideoUrl("");
       setSettings(saved);
     } catch (applyError) {
@@ -522,6 +525,10 @@ export default function App() {
       </main>
 
       <SettingsDialog
+        archives={archives}
+        archivesLoading={archiveLoading}
+        archivesError={archiveError}
+        onRefreshArchives={loadArchives}
         youtube={youtube}
         open={settingsOpen}
         settings={settings}

@@ -18,6 +18,10 @@ import { validateCharacterImage } from "../lib/fal";
 import { formatPerMillionPrice } from "../lib/models";
 
 interface SettingsDialogProps {
+  archives: ArchiveEntry[];
+  archivesLoading: boolean;
+  archivesError: string;
+  onRefreshArchives: () => Promise<void>;
   youtube: YouTubeControl;
   open: boolean;
   settings: AppSettings;
@@ -44,6 +48,7 @@ interface SettingsDialogProps {
 }
 
 export function SettingsDialog({
+  archives, archivesLoading, archivesError, onRefreshArchives,
   youtube,
   open,
   settings,
@@ -326,6 +331,14 @@ export function SettingsDialog({
           </div>
 
           <IdleMotionSettings
+            imageUrl={settings.characterImageUrl}
+            archives={archives}
+            archivesLoading={archivesLoading}
+            archivesError={archivesError}
+            onRefreshArchives={onRefreshArchives}
+            onApplyArchived={(entry) => onApplyIdle(entry)}
+            hasApiKey={Boolean(settings.falApiKey.trim())}
+            onOpenApiSettings={() => { setTab("models"); document.getElementById("settings-tab-models")?.focus(); }}
             key={settings.characterImageUrl}
             currentUrl={idleVideoUrl ?? ""}
             candidate={idleCandidate}

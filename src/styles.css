@@ -1518,3 +1518,6 @@ img.stage-media {
 @media (max-width: 520px) {
   .settings-dialog { height: 94dvh; max-height: 94dvh; }
 }
+.idle-archive-picker { display: grid; gap: 12px; min-width: 0; padding: 16px; border: 1px solid var(--line); border-radius: 12px; }
+.idle-archive-picker label { font-size: 12px; font-weight: 600; }
+.idle-archive-picker select { min-width: 0; width: 100%; }

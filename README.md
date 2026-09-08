@@ -196,3 +196,22 @@ npm test           # Run unit tests without calling external APIs
 npm run build      # Type-check and build the production frontend
 npm start          # Serve the built dist directory locally
 ```
+
+## YouTube Live comments
+
+Use OBS or another encoder to broadcast this app's picture and audio. The app reads live comments and generates video replies; it does not send an RTMP stream or create a YouTube broadcast.
+
+1. Enable YouTube Data API v3 in Google Cloud and create an API key. Configure browser/referrer restrictions for the local app origin and restrict the key to YouTube Data API v3.
+2. In the YouTube streaming tab in Settings, enter the YouTube API key, live URL or 11-character video ID, and polling interval. Save Changes, then reopen Settings and start comment retrieval.
+3. Close Settings to let automatic replies begin. Settings and Archive pause selection of the next comment while open.
+4. Use the expand icon at the bottom right of the avatar to hide the chat and header. The shrink icon in the same location restores the normal view. Capture the avatar region and application audio in OBS; return to the controls to stop retrieval.
+
+Like [SVG AITuber Chat](https://github.com/shinshin86/svg-aituber-chat), this integration uses `liveChatMessages.list` polling, page tokens, duplicate filtering, and a bounded queue. It respects YouTube's `pollingIntervalMillis` and caches the active chat ID for each connection. Only comments posted after connection are eligible. The queue retains at most 50 comments; entries older than two minutes are skipped before processing. Each reply waits for the preceding video's playback to finish, including its transition from idle.
+
+Stopping clears pending comments and aborts comment retrieval. An already running generation or video continues to completion. API, generation, or playback errors stop automatic replies; reconnect manually after resolving the problem. Reloading or saving changed settings also stops retrieval. Saving without changes keeps retrieval running. Automatic replies incur the usual fal generation charges and consume YouTube API quota. Generation latency can cause comments to expire before a reply is possible.
+
+YouTube settings, including the API key, are stored in this browser's localStorage for local use. Viewer comments are passed to the LLM as external conversation data; their text and generated replies are retained in the local video archive. Actual YouTube connectivity, OBS audio capture, and unattended playback must be checked with a live broadcast and your browser. If audio autoplay is blocked, play the reply manually before reconnecting.
+
+Settings groups controls into Avatar (image, name, persona, idle motion), AI & Video (fal API key, LLM, video model, resolution), and YouTube streaming tabs. Switching tabs retains draft values; Save Changes saves all tabs together.
+
+The Avatar tab also lists archived idle videos generated from the current reference image. Preview a selection before applying it; videos that cannot load cannot be applied. Applying an existing video requires no API key. Attempting generation without a saved fal API key shows an error with a shortcut to the AI & Video tab.

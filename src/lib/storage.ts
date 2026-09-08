@@ -1,3 +1,4 @@
+import { DEFAULT_YOUTUBE, normalizeYouTubeSettings } from "./youtube";
 import { DEFAULT_VIDEO_MODEL, normalizeVideoModel } from "./videoModels";
 import type { AppSettings } from "../types";
 import { normalizeIdlePrompts } from "./idleMotion";
@@ -6,6 +7,7 @@ const SETTINGS_KEY = "ai-character-video-chat:settings:v2";
 const LEGACY_SETTINGS_KEY = "ai-character-video-chat:settings:v1";
 
 export const DEFAULT_SETTINGS: AppSettings = {
+  youtube: DEFAULT_YOUTUBE,
   videoModel: DEFAULT_VIDEO_MODEL,
   idleVideoUrls: {},
   idlePrompts: {},
@@ -26,6 +28,7 @@ export function loadSettings(): AppSettings {
       return {
         ...DEFAULT_SETTINGS,
         ...parsed,
+        youtube: normalizeYouTubeSettings(parsed.youtube),
         videoModel: normalizeVideoModel(parsed.videoModel),
         idleVideoUrls: normalizeIdleVideoUrls(parsed.idleVideoUrls),
         idlePrompts: normalizeIdlePrompts(parsed.idlePrompts),

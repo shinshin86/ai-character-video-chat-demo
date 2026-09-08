@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { CircleUserRound, Volume2 } from "lucide-react";
+import { CircleUserRound, Volume2, Maximize2, Minimize2 } from "lucide-react";
 
 interface CharacterStageProps {
   characterName: string;
@@ -8,6 +8,9 @@ interface CharacterStageProps {
   videoUrl: string;
   playbackKey: number;
   onOpenSettings: () => void;
+  expanded: boolean;
+  onToggleExpanded: () => void;
+  onPlaybackState?: (state: "playing" | "finished" | "blocked" | "error") => void;
 }
 
 interface ReplyClipProps {
@@ -15,9 +18,11 @@ interface ReplyClipProps {
   onReady: (start: () => void) => void;
   onStarted: () => void;
   onFinished: () => void;
+  onBlocked: () => void;
+  onFailed: () => void;
 }
 
-function ReplyClip({ url, onReady, onStarted, onFinished }: ReplyClipProps) {
+function ReplyClip({ url, onReady, onStarted, onFinished, onBlocked, onFailed }: ReplyClipProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const announced = useRef(false);
   const mounted = useRef(true);
@@ -38,6 +43,7 @@ function ReplyClip({ url, onReady, onStarted, onFinished }: ReplyClipProps) {
       if (!mounted.current) return;
       setBlocked(true);
       onFinished();
+      onBlocked();
     });
   };
 
@@ -71,6 +77,7 @@ function ReplyClip({ url, onReady, onStarted, onFinished }: ReplyClipProps) {
           setFailed(true);
           setVisible(false);
           onFinished();
+          onFailed();
         }}
       />
       {blocked && !failed && (
@@ -87,7 +94,7 @@ function ReplyClip({ url, onReady, onStarted, onFinished }: ReplyClipProps) {
 }
 
 export function CharacterStage({
-  characterName, imageUrl, idleVideoUrl, videoUrl, playbackKey, onOpenSettings,
+  characterName, imageUrl, idleVideoUrl, videoUrl, playbackKey, onOpenSettings, onPlaybackState, expanded, onToggleExpanded,
 }: CharacterStageProps) {
   const idleRef = useRef<HTMLVideoElement>(null);
   const queuedStart = useRef<(() => void) | null>(null);
@@ -171,10 +178,17 @@ export function CharacterStage({
               start();
             }
           }}
-          onStarted={() => idleRef.current?.pause()}
-          onFinished={resumeIdle}
+          onStarted={() => { idleRef.current?.pause(); onPlaybackState?.("playing"); }}
+          onFinished={() => { resumeIdle(); onPlaybackState?.("finished"); }}
+          onBlocked={() => onPlaybackState?.("blocked")}
+          onFailed={() => onPlaybackState?.("error")}
         />
       )}
+      <button type="button" className="stage-expand-button" onClick={onToggleExpanded}
+        aria-label={expanded ? "通常表示に戻す" : "配信用に拡大表示"} aria-pressed={expanded}
+        title={expanded ? "通常表示に戻す" : "配信用に拡大表示"}>
+        {expanded ? <Minimize2 size={19} aria-hidden="true" /> : <Maximize2 size={19} aria-hidden="true" />}
+      </button>
       <div className="stage-topline">
         <span className="live-dot" aria-hidden="true" /><span>{characterName}</span>
       </div>

@@ -1469,3 +1469,55 @@ img.stage-media {
 @media (max-width: 520px) {
   .idle-preview-grid { grid-template-columns: 1fr; }
 }
+
+.youtube-settings, .youtube-monitor {
+  border: 1px solid var(--border, #30343a);
+  border-radius: 14px;
+  padding: 18px;
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+}
+.youtube-settings h3 { margin: 0; }
+.youtube-monitor { margin-bottom: 20px; }
+.youtube-monitor p, .youtube-chat-status { overflow-wrap: anywhere; }
+.youtube-chat-status { padding: 10px 18px; font-size: 12px; border-top: 1px solid #30343a; }
+.stream-view .app-header, .stream-view .chat-panel, .stream-view .stage-caption { display: none; }
+.stream-view .character-stage { height: calc(100dvh - 56px); }
+.stream-view .workspace { grid-template-columns: minmax(0, 1fr); }
+.stream-view .character-stage { width: 100%; min-height: 0; aspect-ratio: auto; }
+.youtube-monitor button:disabled { opacity: 0.45; cursor: not-allowed; }
+
+
+.settings-dialog { display: flex; flex-direction: column; overflow: hidden; }
+.settings-dialog > .dialog-header, .settings-tabs { flex-shrink: 0; }
+.settings-tabs { display: flex; gap: 6px; padding: 12px 24px; border-bottom: 1px solid var(--line); }
+.settings-tabs button { flex: 1; padding: 11px 8px; border-radius: 9px; color: var(--muted); font-size: 12px; font-weight: 600; }
+.settings-tabs button:hover { color: #fff; background: #ffffff08; }
+.settings-tabs button[aria-selected="true"] { color: var(--accent, #b2f76e); background: #b2f76e12; }
+.settings-tabs button:focus-visible, .stage-expand-button:focus-visible { outline: 2px solid #b2f76e; outline-offset: 2px; }
+.settings-form { display: flex; flex-direction: column; min-height: 0; overflow: hidden; padding: 0; gap: 0; }
+.settings-panels { overflow-y: auto; min-height: 0; padding: 22px 24px; }
+.settings-panels [role="tabpanel"][hidden] { display: none; }
+.settings-tab-fields { border: 0; padding: 0; margin: 0; min-width: 0; display: grid; gap: 22px; }
+.settings-form > .dialog-actions { flex-shrink: 0; margin: 0; padding: 16px 24px; border-top: 1px solid var(--line); }
+.settings-form > .inline-error { margin: 0 24px 12px; }
+.stage-expand-button { position: absolute; right: 16px; bottom: 16px; z-index: 5; display: grid; place-items: center; width: 40px; height: 40px; border-radius: 11px; color: #e7e9ed; border: 1px solid #ffffff24; background: #111318b3; backdrop-filter: blur(10px); }
+.stage-expand-button:hover { background: #242830; color: #b2f76e; }
+.character-stage:has(.stage-reply:not(.is-hidden)) .stage-expand-button { bottom: 58px; }
+@media (max-width: 520px) {
+  .settings-tabs { padding: 10px 18px; gap: 2px; }
+  .settings-tabs button { font-size: 11px; }
+  .settings-panels { padding: 18px; }
+  .settings-form > .dialog-actions { padding: 12px 18px; }
+  .stage-expand-button { right: 12px; bottom: 12px; }
+}
+.settings-tabs button { appearance: none; border: 1px solid transparent; background: transparent; cursor: pointer; }
+.settings-tabs button[aria-selected="true"] { border-color: #a7f56a30; background: #a7f56a12; }
+.settings-dialog { height: min(860px, calc(100dvh - 40px)); min-height: 0; }
+@media (max-width: 520px) {
+  .settings-dialog { height: 94dvh; max-height: 94dvh; }
+}
+.idle-archive-picker { display: grid; gap: 12px; min-width: 0; padding: 16px; border: 1px solid var(--line); border-radius: 12px; }
+.idle-archive-picker label { font-size: 12px; font-weight: 600; }
+.idle-archive-picker select { min-width: 0; width: 100%; }

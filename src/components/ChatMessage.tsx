@@ -29,7 +29,7 @@ export function ChatMessage({
       )}
       <div className="message-content">
         <span className="message-author">
-          {isAssistant ? characterName : "You"}
+          {isAssistant ? characterName : message.source === "youtube" ? `YouTube · ${message.author}` : "You"}
         </span>
         <div className="message-bubble">
           <p>{message.text}</p>

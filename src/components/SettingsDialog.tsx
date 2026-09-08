@@ -1,3 +1,6 @@
+import type { YouTubeControl } from "../hooks/useYouTube";
+import { YouTubeFields, YouTubeMonitor } from "./YouTubeSettings";
+import { youtubeVideoId } from "../lib/youtube";
 import { normalizeVideoModel, VIDEO_MODELS } from "../lib/videoModels";
 import {
   Check,
@@ -15,6 +18,11 @@ import { validateCharacterImage } from "../lib/fal";
 import { formatPerMillionPrice } from "../lib/models";
 
 interface SettingsDialogProps {
+  archives: ArchiveEntry[];
+  archivesLoading: boolean;
+  archivesError: string;
+  onRefreshArchives: () => Promise<void>;
+  youtube: YouTubeControl;
   open: boolean;
   settings: AppSettings;
   saving: boolean;
@@ -40,6 +48,8 @@ interface SettingsDialogProps {
 }
 
 export function SettingsDialog({
+  archives, archivesLoading, archivesError, onRefreshArchives,
+  youtube,
   open,
   settings,
   saving,
@@ -63,6 +73,7 @@ export function SettingsDialog({
   onSave,
   onReset,
 }: SettingsDialogProps) {
+  const [tab, setTab] = useState<"avatar" | "models" | "stream">("avatar");
   const [draft, setDraft] = useState(settings);
   const [image, setImage] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState(settings.characterImageUrl);
@@ -148,7 +159,7 @@ export function SettingsDialog({
       >
         <header className="dialog-header">
           <div>
-            <span className="eyebrow">CHARACTER SETUP</span>
+            <span className="eyebrow">PREFERENCES</span>
             <h2 id="settings-title">Settings</h2>
           </div>
           <button className="icon-button" type="button" onClick={onClose}>
@@ -157,35 +168,26 @@ export function SettingsDialog({
           </button>
         </header>
 
-        <form onSubmit={submit} className="settings-form">
-          <fieldset className="settings-fields" disabled={busy || saving}>
-          <div className="field-group">
-            <label htmlFor="fal-api-key">fal API Key</label>
-            <div className="password-field">
-              <input
-                id="fal-api-key"
-                type={showKey ? "text" : "password"}
-                value={draft.falApiKey}
-                onChange={(event) =>
-                  setDraft({ ...draft, falApiKey: event.target.value })
-                }
-                placeholder="XXXXXXXXXXXXXXXX"
-                autoComplete="off"
-                spellCheck={false}
-              />
-              <button
-                type="button"
-                onClick={() => setShowKey((current) => !current)}
-                aria-label={showKey ? "APIキーを隠す" : "APIキーを表示"}
-              >
-                {showKey ? <EyeOff size={17} /> : <Eye size={17} />}
-              </button>
-            </div>
-            <p className="field-hint">
-              LLM・画像アップロード・動画生成で同じキーを使います。この端末のlocalStorageに保存されるローカルデモ専用の設定です。
-            </p>
-          </div>
+        <div className="settings-tabs" role="tablist" aria-label="設定カテゴリ">
+          {([{ id: "avatar", label: "アバター" }, { id: "models", label: "AI・動画" }, { id: "stream", label: "YouTube配信" }] as const).map((item, index) => (
+            <button key={item.id} id={`settings-tab-${item.id}`} type="button" role="tab"
+              aria-selected={tab === item.id} aria-controls={`settings-panel-${item.id}`}
+              tabIndex={tab === item.id ? 0 : -1} onClick={() => setTab(item.id)}
+              onKeyDown={(event) => {
+                const ids = ["avatar", "models", "stream"] as const;
+                const next = event.key === "ArrowRight" ? (index + 1) % 3 : event.key === "ArrowLeft" ? (index + 2) % 3 : event.key === "Home" ? 0 : event.key === "End" ? 2 : -1;
+                if (next < 0) return;
+                event.preventDefault();
+                setTab(ids[next]);
+                document.getElementById(`settings-tab-${ids[next]}`)?.focus();
+              }}>{item.label}</button>
+          ))}
+        </div>
 
+        <form onSubmit={submit} className="settings-form">
+          <div className="settings-panels">
+            <section role="tabpanel" id="settings-panel-avatar" aria-labelledby="settings-tab-avatar" hidden={tab !== "avatar"} tabIndex={0}>
+              <fieldset className="settings-tab-fields" disabled={busy || saving}>
           <div className="field-group">
             <label>Character Image</label>
             <label className="image-picker">
@@ -302,21 +304,41 @@ export function SettingsDialog({
             </section>
           </div>
 
+            <div className="field-group">
+              <label htmlFor="character-name">Character Name</label>
+              <input
+                id="character-name"
+                value={draft.characterName}
+                maxLength={60}
+                placeholder="任意のキャラクター名"
+                onChange={(event) =>
+                  setDraft({ ...draft, characterName: event.target.value })
+                }
+              />
+            </div>
           <div className="field-group">
-            <label htmlFor="video-model">Video Model</label>
-            <select
-              id="video-model"
-              value={draft.videoModel}
-              onChange={(event) => setDraft({ ...draft, videoModel: normalizeVideoModel(event.target.value) })}
-            >
-              {Object.entries(VIDEO_MODELS).map(([id, model]) => (
-                <option key={id} value={id}>{model.label}</option>
-              ))}
-            </select>
-            <p className="field-hint">保存後、会話動画とアイドル動画の両方に適用されます。生成済みの動画は変更されません。</p>
+            <label htmlFor="character-persona">Character Persona</label>
+            <textarea
+              id="character-persona"
+              rows={4}
+              maxLength={2_000}
+              value={draft.characterPersona}
+              placeholder="話し方や性格を自由に設定（任意）"
+              onChange={(event) =>
+                setDraft({ ...draft, characterPersona: event.target.value })
+              }
+            />
           </div>
 
           <IdleMotionSettings
+            imageUrl={settings.characterImageUrl}
+            archives={archives}
+            archivesLoading={archivesLoading}
+            archivesError={archivesError}
+            onRefreshArchives={onRefreshArchives}
+            onApplyArchived={(entry) => onApplyIdle(entry)}
+            hasApiKey={Boolean(settings.falApiKey.trim())}
+            onOpenApiSettings={() => { setTab("models"); document.getElementById("settings-tab-models")?.focus(); }}
             key={settings.characterImageUrl}
             currentUrl={idleVideoUrl ?? ""}
             candidate={idleCandidate}
@@ -335,19 +357,51 @@ export function SettingsDialog({
             onApply={(entry) => onApplyIdle(entry, draft.idlePrompts[settings.characterImageUrl])}
           />
 
-          <div className="two-column-fields">
-            <div className="field-group">
-              <label htmlFor="character-name">Character Name</label>
+              </fieldset>
+            </section>
+            <section role="tabpanel" id="settings-panel-models" aria-labelledby="settings-tab-models" hidden={tab !== "models"} tabIndex={0}>
+              <fieldset className="settings-tab-fields" disabled={busy || saving}>
+          <div className="field-group">
+            <label htmlFor="fal-api-key">fal API Key</label>
+            <div className="password-field">
               <input
-                id="character-name"
-                value={draft.characterName}
-                maxLength={60}
-                placeholder="任意のキャラクター名"
+                id="fal-api-key"
+                type={showKey ? "text" : "password"}
+                value={draft.falApiKey}
                 onChange={(event) =>
-                  setDraft({ ...draft, characterName: event.target.value })
+                  setDraft({ ...draft, falApiKey: event.target.value })
                 }
+                placeholder="XXXXXXXXXXXXXXXX"
+                autoComplete="off"
+                spellCheck={false}
               />
+              <button
+                type="button"
+                onClick={() => setShowKey((current) => !current)}
+                aria-label={showKey ? "APIキーを隠す" : "APIキーを表示"}
+              >
+                {showKey ? <EyeOff size={17} /> : <Eye size={17} />}
+              </button>
             </div>
+            <p className="field-hint">
+              LLM・画像アップロード・動画生成で同じキーを使います。この端末のlocalStorageに保存されるローカルデモ専用の設定です。
+            </p>
+          </div>
+
+          <div className="field-group">
+            <label htmlFor="video-model">Video Model</label>
+            <select
+              id="video-model"
+              value={draft.videoModel}
+              onChange={(event) => setDraft({ ...draft, videoModel: normalizeVideoModel(event.target.value) })}
+            >
+              {Object.entries(VIDEO_MODELS).map(([id, model]) => (
+                <option key={id} value={id}>{model.label}</option>
+              ))}
+            </select>
+            <p className="field-hint">保存後、会話動画とアイドル動画の両方に適用されます。生成済みの動画は変更されません。</p>
+          </div>
+
             <div className="field-group">
               <label htmlFor="video-resolution">Video Resolution</label>
               <select
@@ -364,22 +418,6 @@ export function SettingsDialog({
                 <option value="768P">768P — higher quality</option>
               </select>
             </div>
-          </div>
-
-          <div className="field-group">
-            <label htmlFor="character-persona">Character Persona</label>
-            <textarea
-              id="character-persona"
-              rows={4}
-              maxLength={2_000}
-              value={draft.characterPersona}
-              placeholder="話し方や性格を自由に設定（任意）"
-              onChange={(event) =>
-                setDraft({ ...draft, characterPersona: event.target.value })
-              }
-            />
-          </div>
-
           <div className="field-group">
             <div className="model-field-heading">
               <label htmlFor="llm-model">fal LLM Model</label>
@@ -439,6 +477,15 @@ export function SettingsDialog({
             )}
           </div>
 
+              </fieldset>
+            </section>
+            <section role="tabpanel" id="settings-panel-stream" aria-labelledby="settings-tab-stream" hidden={tab !== "stream"} tabIndex={0}>
+          <YouTubeMonitor control={youtube} canStart={!hasUnsavedChanges && !busy && !saving && Boolean(settings.falApiKey && settings.characterImageUrl && settings.youtube.apiKey && youtubeVideoId(settings.youtube.liveUrl))} />
+              <fieldset className="settings-tab-fields" disabled={busy || saving}>
+          <YouTubeFields value={draft.youtube} onChange={(value) => setDraft({ ...draft, youtube: value })} />
+              </fieldset>
+            </section>
+          </div>
           {(localError || error) && (
             <div className="inline-error" role="alert">
               {localError || error}
@@ -469,7 +516,6 @@ export function SettingsDialog({
               </button>
             </div>
           </footer>
-          </fieldset>
         </form>
       </section>
     </div>

@@ -1,3 +1,5 @@
+import { useYouTube } from "./hooks/useYouTube";
+import { normalizeYouTubeSettings, viewerPrompt, type ViewerComment } from "./lib/youtube";
 import { VIDEO_MODELS } from "./lib/videoModels";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -47,6 +49,8 @@ function createMessage(
 }
 
 export default function App() {
+  const [streamView, setStreamView] = useState(false);
+  const playbackBusy = useRef(false);
   const [settings, setSettings] = useState<AppSettings>(loadSettings);
   const [messages, setMessages] = useState<ChatMessageType[]>([]);
   const [archives, setArchives] = useState<ArchiveEntry[]>([]);
@@ -149,6 +153,7 @@ export default function App() {
   }, [messages, phase]);
 
   const playVideo = useCallback((videoUrl: string) => {
+    playbackBusy.current = true;
     setCurrentVideoUrl(videoUrl);
     setVideoPlaybackKey((current) => current + 1);
   }, []);
@@ -166,6 +171,7 @@ export default function App() {
     image: File | null,
   ) => {
     if (generationLock.current) return;
+    nextSettings = { ...nextSettings, youtube: normalizeYouTubeSettings(nextSettings.youtube) };
     setSettingsError("");
     setSavingSettings(true);
 
@@ -195,8 +201,10 @@ export default function App() {
         characterReferenceId,
       };
       saveSettings(saved);
+      if (JSON.stringify(saved) !== JSON.stringify(settings)) youtube.stop();
       setSettings(saved);
       if (saved.characterImageUrl !== settings.characterImageUrl) {
+        playbackBusy.current = false;
         setCurrentVideoUrl("");
         setMessages([]);
         setIdleError("");
@@ -214,6 +222,8 @@ export default function App() {
 
   const handleResetSettings = () => {
     if (generationLock.current) return;
+    youtube.stop();
+    playbackBusy.current = false;
     const defaults = resetSettings();
     setSettings(defaults);
     setIdleCandidates({});
@@ -222,8 +232,8 @@ export default function App() {
     setSettingsError("");
   };
 
-  const handleSend = async (text: string) => {
-    if (generationLock.current || savingSettings) return;
+  const handleSend = async (text: string, viewer?: ViewerComment): Promise<boolean> => {
+    if (generationLock.current || savingSettings || (viewer && playbackBusy.current)) return false;
     if (!ready) {
       setSettingsError(
         !settings.falApiKey
@@ -231,12 +241,17 @@ export default function App() {
           : "Character Imageを設定してください。",
       );
       setSettingsOpen(true);
-      return;
+      return false;
     }
 
     generationLock.current = true;
     setError("");
     const userMessage = createMessage("user", text);
+    if (viewer) {
+      userMessage.author = viewer.author;
+      userMessage.source = "youtube";
+      userMessage.promptText = viewerPrompt(viewer);
+    }
     const conversation = [...messages, userMessage];
     setMessages(conversation);
     setPhase("thinking");
@@ -244,7 +259,7 @@ export default function App() {
 
     let assistantMessage: ChatMessageType | undefined;
     try {
-      const reply = await generateCharacterReply(settings, conversation);
+      const reply = await generateCharacterReply(settings, conversation.map((message) => ({ ...message, text: message.promptText ?? message.text })));
       assistantMessage = createMessage("assistant", reply.dialogue);
       setMessages((current) => [...current, assistantMessage!]);
       setPhase("generating");
@@ -285,15 +300,21 @@ export default function App() {
       ]);
     } catch (sendError) {
       setError(getErrorMessage(sendError));
+      if (viewer) throw sendError;
     } finally {
       generationLock.current = false;
       setPhase("idle");
       setStatusText("");
     }
+    return true;
   };
 
+  const youtube = useYouTube(settings.youtube, isBusy || savingSettings || settingsOpen || archiveOpen, (comment) => handleSend(comment.text, comment));
+
   const handleGenerateIdle = async (prompt: string) => {
-    if (generationLock.current || savingSettings || !ready) return;
+    if (generationLock.current || savingSettings) return;
+    if (!settings.falApiKey.trim()) { setIdleError("AI・動画タブでfal API Keyを設定・保存してください。"); return; }
+    if (!settings.characterImageUrl) { setIdleError("生成するキャラクター画像を登録・保存してください。"); return; }
     generationLock.current = true;
     setIdleGenerating(true);
     setIdleError("");
@@ -348,6 +369,7 @@ export default function App() {
         idlePrompts: prompt === undefined ? settings.idlePrompts : { ...settings.idlePrompts, [settings.characterImageUrl]: prompt },
       };
       saveSettings(saved);
+      playbackBusy.current = false;
       setCurrentVideoUrl("");
       setSettings(saved);
     } catch (applyError) {
@@ -366,7 +388,7 @@ export default function App() {
   };
 
   return (
-    <div className="app-shell">
+    <div className={`app-shell${streamView ? " stream-view" : ""}`}>
       <header className="app-header">
         <div className="brand">
           <span className="brand-mark" aria-hidden="true">
@@ -411,7 +433,13 @@ export default function App() {
             characterName={characterDisplayName}
             imageUrl={characterDisplayImageUrl}
             videoUrl={currentVideoUrl}
+            expanded={streamView}
+            onToggleExpanded={() => setStreamView((value) => !value)}
             playbackKey={videoPlaybackKey}
+            onPlaybackState={(state) => {
+              playbackBusy.current = state !== "finished" && state !== "error";
+              if (state === "blocked" || state === "error") youtube.stop("動画を再生できないため自動返答を停止しました。再生を確認してから再接続してください。");
+            }}
             onOpenSettings={() => setSettingsOpen(true)}
           />
           <div className="stage-caption">
@@ -458,6 +486,9 @@ export default function App() {
             <div ref={chatEndRef} />
           </div>
 
+          {(youtube.running || youtube.error) && <div className="youtube-chat-status" role="status">YouTube：{youtube.status} · 待機 {youtube.pending}件 {youtube.error}
+            {youtube.running && <button type="button" className="ghost-button" onClick={() => youtube.stop()}>停止</button>}
+          </div>}
           {isBusy && (
             <div className="chat-generation-status" role="status" aria-live="polite">
               <span className="spinner" aria-hidden="true" />
@@ -486,7 +517,7 @@ export default function App() {
             </button>
           )}
 
-          <ChatComposer disabled={isBusy} onSend={handleSend} />
+          <ChatComposer disabled={isBusy} onSend={async (text) => { await handleSend(text); }} />
           <p className="composer-note">
             Enterで送信 · Shift + Enterで改行 · 送信ごとに動画生成料金が発生します
           </p>
@@ -494,6 +525,11 @@ export default function App() {
       </main>
 
       <SettingsDialog
+        archives={archives}
+        archivesLoading={archiveLoading}
+        archivesError={archiveError}
+        onRefreshArchives={loadArchives}
+        youtube={youtube}
         open={settingsOpen}
         settings={settings}
         saving={savingSettings}

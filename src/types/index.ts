@@ -9,6 +9,7 @@ export interface CharacterReply {
 }
 
 export interface AppSettings {
+  youtube: import("../lib/youtube").YouTubeSettings;
   videoModel: VideoModel;
   idleVideoUrls: Record<string, string>;
   idlePrompts: Record<string, string>;
@@ -40,6 +41,9 @@ export interface LlmModelOption {
 }
 
 export interface ChatMessage {
+  author?: string;
+  source?: "youtube";
+  promptText?: string;
   id: string;
   role: "user" | "assistant";
   text: string;

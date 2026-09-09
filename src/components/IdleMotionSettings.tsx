@@ -57,13 +57,14 @@ export function IdleMotionSettings({
   const selectedArchive = availableArchives.find((entry) => entry.id === selectedArchiveId);
   const generate = () => {
     setValidationError("");
-    if (!hasApiKey) { setValidationError("APIキーが未設定です。「AI・動画」タブでfal API Keyを入力し、Save Changesで保存してください。"); return; }
-    if (hasUnsavedChanges) { setValidationError("先にSave Changesで画像と設定を保存してください。"); return; }
+    if (!hasApiKey) { setValidationError("APIキーが未設定です。「AI・動画」タブでfal API Keyを入力してください。"); return; }
+    if (hasUnsavedChanges) { setValidationError("画像と設定の保存完了を確認してください。"); return; }
     if (!canGenerate) { setValidationError("生成するキャラクター画像を登録・保存してください。"); return; }
     if (!prompt.trim()) { setValidationError("アイドルモーションのプロンプトを入力してください。"); return; }
     void onGenerate(prompt);
   };
   const [prompt, setPrompt] = useState(initialPrompt ?? DEFAULT_IDLE_PROMPT);
+  useEffect(() => { setPrompt(initialPrompt ?? DEFAULT_IDLE_PROMPT); }, [initialPrompt]);
   const updatePrompt = (value: string) => { setPrompt(value); onPromptChange(value); };
   const [candidateReadyUrl, setCandidateReadyUrl] = useState("");
   const candidateIsCurrent = Boolean(candidate && candidate.localVideoUrl === currentUrl);
@@ -135,7 +136,7 @@ export function IdleMotionSettings({
         <button type="button" className="ghost-button" onClick={() => updatePrompt(DEFAULT_IDLE_PROMPT)}>
           デフォルトに戻す
         </button>
-        <p className="field-hint">日本語でも編集できます。Save Changesまたは生成時に、内容を画像ごとに記憶します。開始・終了画像は登録画像に固定されます。大きな動きはつなぎ目が目立つ場合があります。</p>
+        <p className="field-hint">日本語でも編集できます。編集内容は画像ごとに自動保存され、次の生成に適用されます。開始・終了画像は登録画像に固定されます。大きな動きはつなぎ目が目立つ場合があります。</p>
       </div>
       <button
         className="secondary-button" type="button"
@@ -144,7 +145,7 @@ export function IdleMotionSettings({
       >{generating ? "作成しています..." : candidate || currentUrl ? "アイドルモーションを再生成" : "アイドルモーションを作成"}</button>
       <p className="field-hint">作成・再生成ごとに動画生成料金が発生します。プレビュー・設定・ループ再生は追加料金なしです。採用しなかった動画もArchiveに保存されます。</p>
       <p className="field-hint" role="status">
-        {status || (hasUnsavedChanges ? "先にSave Changesで画像と設定を保存してください。"
+        {status || (hasUnsavedChanges ? "画像と設定の保存完了を確認してください。"
           : !canGenerate ? "生成には保存済み画像とfal API Keyが必要です。"
             : "「この動画を設定」を押すまで、現在の待ち受けを維持します。")}
       </p>

@@ -11,7 +11,7 @@ import {
   RotateCcw,
   X,
 } from "lucide-react";
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type SetStateAction } from "react";
 import type { AppSettings, ArchiveEntry, LlmModelOption, ReferenceImage } from "../types";
 import { IdleMotionSettings } from "./IdleMotionSettings";
 import { validateCharacterImage } from "../lib/fal";
@@ -43,7 +43,7 @@ interface SettingsDialogProps {
   onRefreshModels: () => Promise<void>;
   onRefreshReferenceImages: () => Promise<void>;
   onClose: () => void;
-  onSave: (settings: AppSettings, image: File | null) => Promise<void>;
+  onSave: (settings: AppSettings, image: File | null) => Promise<boolean>;
   onReset: () => void;
 }
 
@@ -74,7 +74,8 @@ export function SettingsDialog({
   onReset,
 }: SettingsDialogProps) {
   const [tab, setTab] = useState<"avatar" | "models" | "stream">("avatar");
-  const [draft, setDraft] = useState(settings);
+  const [draft, updateDraft] = useState(settings);
+  const [saveNotice, setSaveNotice] = useState("変更は自動保存されます");
   const [image, setImage] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState(settings.characterImageUrl);
   const [showKey, setShowKey] = useState(false);
@@ -92,19 +93,19 @@ export function SettingsDialog({
   const currentModelIsListed = Boolean(selectedModel);
 
   useEffect(() => {
-    if (!open) return;
-    setDraft(settings);
-    setImage(null);
-    setPreviewUrl(settings.characterImageUrl);
+    updateDraft(settings);
     setLocalError("");
-  }, [open, settings]);
+  }, [settings]);
 
   useEffect(() => {
-    if (!image) return;
+    if (!image) {
+      setPreviewUrl(settings.characterImageUrl);
+      return;
+    }
     const objectUrl = URL.createObjectURL(image);
     setPreviewUrl(objectUrl);
     return () => URL.revokeObjectURL(objectUrl);
-  }, [image]);
+  }, [image, settings.characterImageUrl]);
 
   useEffect(() => {
     if (!open || image || !draft.characterReferenceId) return;
@@ -114,7 +115,21 @@ export function SettingsDialog({
     if (selected) setPreviewUrl(selected.localImageUrl);
   }, [draft.characterReferenceId, image, open, referenceImages]);
 
-  const hasUnsavedChanges = Boolean(image) || JSON.stringify({ ...draft, idlePrompts: settings.idlePrompts }) !== JSON.stringify(settings);
+  const setDraft = (value: SetStateAction<AppSettings>) => {
+    const next = typeof value === "function" ? value(draft) : value;
+    updateDraft(next);
+    setLocalError("");
+    void onSave(next, null);
+  };
+
+  useEffect(() => {
+    if (!open) return;
+    setSaveNotice("変更は自動保存されます");
+    const timer = window.setTimeout(() => setSaveNotice("✓ 保存済み"), 600);
+    return () => window.clearTimeout(timer);
+  }, [open, settings]);
+
+  const hasUnsavedChanges = Boolean(image) || JSON.stringify(draft) !== JSON.stringify(settings);
   const idleVideoUrl = settings.idleVideoUrls[settings.characterImageUrl];
 
   if (!open) return null;
@@ -124,7 +139,7 @@ export function SettingsDialog({
     try {
       validateCharacterImage(file);
       setImage(file);
-      setDraft((current) => ({ ...current, characterReferenceId: "" }));
+      void onSave(draft, file).then((saved) => { if (saved) setImage(null); });
       setLocalError("");
     } catch (uploadError) {
       setLocalError(
@@ -133,20 +148,6 @@ export function SettingsDialog({
           : "画像を読み込めませんでした。",
       );
     }
-  };
-
-  const submit = (event: FormEvent) => {
-    event.preventDefault();
-    setLocalError("");
-    void onSave(
-      {
-        ...draft,
-        characterName: draft.characterName.trim(),
-        characterPersona: draft.characterPersona.trim(),
-        llmModel: draft.llmModel.trim(),
-      },
-      image,
-    );
   };
 
   return (
@@ -162,7 +163,7 @@ export function SettingsDialog({
             <span className="eyebrow">PREFERENCES</span>
             <h2 id="settings-title">Settings</h2>
           </div>
-          <button className="icon-button" type="button" onClick={onClose}>
+          <button className="icon-button" type="button" onClick={onClose} disabled={saving}>
             <X size={20} aria-hidden="true" />
             <span className="sr-only">閉じる</span>
           </button>
@@ -184,7 +185,7 @@ export function SettingsDialog({
           ))}
         </div>
 
-        <form onSubmit={submit} className="settings-form">
+        <form onSubmit={(event) => event.preventDefault()} className="settings-form">
           <div className="settings-panels">
             <section role="tabpanel" id="settings-panel-avatar" aria-labelledby="settings-tab-avatar" hidden={tab !== "avatar"} tabIndex={0}>
               <fieldset className="settings-tab-fields" disabled={busy || saving}>
@@ -496,24 +497,28 @@ export function SettingsDialog({
             <button
               type="button"
               className="reset-button"
-              onClick={onReset}
+              onClick={() => { setImage(null); onReset(); }}
               disabled={saving || busy}
             >
               <RotateCcw size={15} aria-hidden="true" />
               Reset Settings
             </button>
             <div>
+              <span className="save-status" role="status" aria-live="polite">
+                {saving ? "画像を保存中…" : error || hasUnsavedChanges ? "未保存の変更があります" : saveNotice}
+              </span>
               <button
                 type="button"
                 className="ghost-button"
                 onClick={onClose}
                 disabled={saving || busy}
               >
-                Cancel
+                閉じる
               </button>
-              <button className="primary-button" type="submit" disabled={saving || busy}>
-                {saving ? "保存しています..." : "Save Changes"}
-              </button>
+              {(error || hasUnsavedChanges) && !saving && (
+                <button className="secondary-button" type="button" disabled={busy}
+                  onClick={() => void onSave(draft, image).then((saved) => { if (saved) setImage(null); })}>保存を再試行</button>
+              )}
             </div>
           </footer>
         </form>

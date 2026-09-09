@@ -28,6 +28,21 @@ describe("idle motion settings", () => {
     expect(loadSettings().idlePrompts).toEqual(idlePrompts);
   });
 
+  it("keeps the latest edits, including cleared prompts, after reload", () => {
+    const values = new Map<string, string>();
+    vi.stubGlobal("localStorage", {
+      getItem: (key: string) => values.get(key) ?? null,
+      setItem: (key: string, value: string) => values.set(key, value),
+    });
+    for (const text of ["ゆ", "ゆっくり", ""]) {
+      saveSettings({ ...DEFAULT_SETTINGS, falApiKey: "test-key", characterPersona: text,
+        idlePrompts: { avatar: text } });
+      expect(loadSettings().characterPersona).toBe(text);
+      expect(loadSettings().idlePrompts.avatar).toBe(text);
+      expect(loadSettings().falApiKey).toBe("test-key");
+    }
+  });
+
   it("ignores malformed settings and nonlocal video URLs", () => {
     expect(normalizeIdleVideoUrls(null)).toEqual({});
     expect(normalizeIdleVideoUrls([])).toEqual({});

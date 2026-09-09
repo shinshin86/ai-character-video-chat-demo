@@ -17,6 +17,6 @@ export function canApplyIdle(entry: ArchiveEntry, imageUrl: string): boolean {
 export function normalizeIdlePrompts(value: unknown): Record<string, string> {
   if (!value || typeof value !== "object" || Array.isArray(value)) return {};
   return Object.fromEntries(Object.entries(value).filter(([, prompt]) =>
-    typeof prompt === "string" && prompt.trim().length > 0 && prompt.length <= MAX_IDLE_PROMPT_LENGTH,
+    typeof prompt === "string" && prompt.length <= MAX_IDLE_PROMPT_LENGTH,
   ));
 }

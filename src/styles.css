@@ -1521,3 +1521,10 @@ img.stage-media {
 .idle-archive-picker { display: grid; gap: 12px; min-width: 0; padding: 16px; border: 1px solid var(--line); border-radius: 12px; }
 .idle-archive-picker label { font-size: 12px; font-weight: 600; }
 .idle-archive-picker select { min-width: 0; width: 100%; }
+
+.save-status {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.5;
+}
+.dialog-actions > div { flex-wrap: wrap; }

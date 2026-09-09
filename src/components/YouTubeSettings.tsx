@@ -17,7 +17,7 @@ export function YouTubeFields({ value, onChange }: { value: Settings; onChange: 
         {[10,20,30,60].map((n) => <option value={n} key={n}>{n}秒</option>)}
       </select>
     </div>
-    <p className="field-hint">APIキーはこのブラウザ内に保存します。Save Changesで保存後、Settingsを再度開いて取得を開始してください。YouTube指定の取得間隔が長い場合はそちらを優先します。</p>
+    <p className="field-hint">APIキーはこのブラウザ内に保存します。入力すると自動保存され、そのまま取得を開始できます。YouTube指定の取得間隔が長い場合はそちらを優先します。</p>
   </section>;
 }
 

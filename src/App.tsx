@@ -1,5 +1,5 @@
 import { useYouTube } from "./hooks/useYouTube";
-import { normalizeYouTubeSettings, viewerPrompt, type ViewerComment } from "./lib/youtube";
+import { viewerPrompt, type ViewerComment } from "./lib/youtube";
 import { VIDEO_MODELS } from "./lib/videoModels";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -170,10 +170,9 @@ export default function App() {
     nextSettings: AppSettings,
     image: File | null,
   ) => {
-    if (generationLock.current) return;
-    nextSettings = { ...nextSettings, youtube: normalizeYouTubeSettings(nextSettings.youtube) };
+    if (generationLock.current) return false;
     setSettingsError("");
-    setSavingSettings(true);
+    if (image) setSavingSettings(true);
 
     try {
       let characterImageUrl = nextSettings.characterImageUrl;
@@ -197,11 +196,12 @@ export default function App() {
       const saved = {
         ...nextSettings,
         falApiKey: nextSettings.falApiKey.trim(),
+        youtube: { ...nextSettings.youtube, apiKey: nextSettings.youtube.apiKey.trim(), liveUrl: nextSettings.youtube.liveUrl.trim() },
         characterImageUrl,
         characterReferenceId,
       };
       saveSettings(saved);
-      if (JSON.stringify(saved) !== JSON.stringify(settings)) youtube.stop();
+      if (saved.characterImageUrl !== settings.characterImageUrl) youtube.stop();
       setSettings(saved);
       if (saved.characterImageUrl !== settings.characterImageUrl) {
         playbackBusy.current = false;
@@ -209,12 +209,13 @@ export default function App() {
         setMessages([]);
         setIdleError("");
       }
-      setSettingsOpen(false);
       setError("");
+      return true;
     } catch (settingsSaveError) {
       setSettingsError(
         getErrorMessage(settingsSaveError, "設定を保存できませんでした。"),
       );
+      return false;
     } finally {
       setSavingSettings(false);
     }

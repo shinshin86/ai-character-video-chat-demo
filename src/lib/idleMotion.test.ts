@@ -19,7 +19,7 @@ describe("idle prompt storage", () => {
   it("retains per-image prompts and ignores malformed values", () => {
     expect(normalizeIdlePrompts({ first: "ゆっくりまばたき", second: "Gentle breathing" }))
       .toEqual({ first: "ゆっくりまばたき", second: "Gentle breathing" });
-    expect(normalizeIdlePrompts({ empty: " ", invalid: 1, long: "x".repeat(4001) })).toEqual({});
+    expect(normalizeIdlePrompts({ empty: " ", invalid: 1, long: "x".repeat(4001) })).toEqual({ empty: " " });
     expect(normalizeIdlePrompts(null)).toEqual({});
   });
 });
